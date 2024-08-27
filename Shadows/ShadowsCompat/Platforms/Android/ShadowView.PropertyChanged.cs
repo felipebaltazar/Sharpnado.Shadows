@@ -1,139 +1,138 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
 
-namespace Sharpnado.Shades.Droid
+namespace Sharpnado.Shades.Droid;
+
+public partial class ShadowView
 {
-    public partial class ShadowView
+    private float _cornerRadius;
+    private IList<Shade> _shadesSource;
+
+    public void UpdateCornerRadius(float cornerRadius)
     {
-        private float _cornerRadius;
-        private IList<Shade> _shadesSource;
-
-        public void UpdateCornerRadius(float cornerRadius)
+        if (_isDisposed)
         {
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            InternalLogger.Debug(LogTag, () => $"UpdateCornerRadius( cornerRadius: {cornerRadius} )");
-            bool hasChanged = _cornerRadius != cornerRadius;
-            _cornerRadius = cornerRadius;
-
-            if (hasChanged && _shadesSource.Any())
-            {
-                RefreshBitmaps();
-                Invalidate();
-            }
+            return;
         }
 
-        public void UpdateShades(IEnumerable<Shade> shadesSource)
+        InternalLogger.Debug(LogTag, () => $"UpdateCornerRadius( cornerRadius: {cornerRadius} )");
+        var hasChanged = _cornerRadius != cornerRadius;
+        _cornerRadius = cornerRadius;
+
+        if (hasChanged && _shadesSource.Any())
         {
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            if (shadesSource == null)
-            {
-                return;
-            }
-
-            InternalLogger.Debug(LogTag, () => $"UpdateShades( shadesSource: {shadesSource} )");
-            _shadesSource = shadesSource.ToList();
-
-            DisposeBitmaps();
-            for (int i = 0; i < _shadesSource.Count; i++)
-            {
-                InsertShade(i, _shadesSource.ElementAt(i));
-            }
-
+            RefreshBitmaps();
             Invalidate();
         }
+    }
 
-        public void ShadesSourceCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+    public void UpdateShades(IEnumerable<Shade> shadesSource)
+    {
+        if (_isDisposed)
         {
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    for (int i = 0, insertIndex = e.NewStartingIndex; i < e.NewItems.Count; i++)
-                    {
-                        InsertShade(insertIndex, (Shade)e.NewItems[i]);
-                    }
-
-                    Invalidate();
-
-                    break;
-                case NotifyCollectionChangedAction.Remove:
-                    for (int i = 0, removedIndex = e.OldStartingIndex; i < e.OldItems.Count; i++)
-                    {
-                        RemoveShade(removedIndex, (Shade)e.OldItems[i]);
-                    }
-
-                    Invalidate();
-                    break;
-
-                case NotifyCollectionChangedAction.Reset:
-                    DisposeBitmaps();
-                    Invalidate();
-                    break;
-            }
+            return;
         }
 
-        private void InsertShade(int insertIndex, Shade shade)
+        if (shadesSource == null)
         {
-            InternalLogger.Debug(LogTag, () => $"InsertShade( insertIndex: {insertIndex}, shade: {shade} )");
-            InsertBitmap(shade);
-            shade.WeakPropertyChanged += ShadePropertyChanged;
+            return;
         }
 
-        private void RemoveShade(int removedIndex, Shade shade)
+        InternalLogger.Debug(LogTag, () => $"UpdateShades( shadesSource: {shadesSource} )");
+        _shadesSource = shadesSource.ToList();
+
+        DisposeBitmaps();
+        for (int i = 0; i < _shadesSource.Count; i++)
         {
-            InternalLogger.Debug(LogTag, () => $"RemoveShade( removedIndex: {removedIndex} )");
-            shade.WeakPropertyChanged -= ShadePropertyChanged;
-            DisposeBitmap(shade);
+            InsertShade(i, _shadesSource.ElementAt(i));
         }
 
-        private void ShadePropertyChanged(object sender, PropertyChangedEventArgs e)
+        Invalidate();
+    }
+
+    public void ShadesSourceCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_isDisposed)
         {
-            if (_isDisposed)
-            {
-                return;
-            }
+            return;
+        }
 
-            if (!Shade.IsShadeProperty(e.PropertyName))
-            {
-                return;
-            }
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                for (int i = 0, insertIndex = e.NewStartingIndex; i < e.NewItems.Count; i++)
+                {
+                    InsertShade(insertIndex, (Shade)e.NewItems[i]);
+                }
 
-            var shade = (Shade)sender;
-            var index = _shadesSource.IndexOf(shade);
-            if (index < 0)
-            {
-                InternalLogger.Warn(
-                    LogTag, $"ShadePropertyChanged => shade property {e.PropertyName} changed but we can't find the shade in the source");
-                return;
-            }
+                Invalidate();
 
-            InternalLogger.Debug(LogTag, () => $"ShadePropertyChanged( shadeIndex: {index}, propertyName: {e.PropertyName} )");
-            switch (e.PropertyName)
-            {
-                case nameof(Shade.BlurRadius):
-                case nameof(Shade.Color):
-                case nameof(Shade.Opacity):
-                    RefreshBitmap(shade);
-                    Invalidate();
-                    break;
+                break;
+            case NotifyCollectionChangedAction.Remove:
+                for (int i = 0, removedIndex = e.OldStartingIndex; i < e.OldItems.Count; i++)
+                {
+                    RemoveShade(removedIndex, (Shade)e.OldItems[i]);
+                }
 
-                case nameof(Shade.Offset):
-                    UpdateShadeInfo(shade);
-                    Invalidate();
-                    break;
-            }
+                Invalidate();
+                break;
+
+            case NotifyCollectionChangedAction.Reset:
+                DisposeBitmaps();
+                Invalidate();
+                break;
+        }
+    }
+
+    private void InsertShade(int insertIndex, Shade shade)
+    {
+        InternalLogger.Debug(LogTag, () => $"InsertShade( insertIndex: {insertIndex}, shade: {shade} )");
+        InsertBitmap(shade);
+        shade.WeakPropertyChanged += ShadePropertyChanged;
+    }
+
+    private void RemoveShade(int removedIndex, Shade shade)
+    {
+        InternalLogger.Debug(LogTag, () => $"RemoveShade( removedIndex: {removedIndex} )");
+        shade.WeakPropertyChanged -= ShadePropertyChanged;
+        DisposeBitmap(shade);
+    }
+
+    private void ShadePropertyChanged(object sender, PropertyChangedEventArgs e)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        if (!Shade.IsShadeProperty(e.PropertyName))
+        {
+            return;
+        }
+
+        var shade = (Shade)sender;
+        var index = _shadesSource.IndexOf(shade);
+        if (index < 0)
+        {
+            InternalLogger.Warn(
+                LogTag, $"ShadePropertyChanged => shade property {e.PropertyName} changed but we can't find the shade in the source");
+            return;
+        }
+
+        InternalLogger.Debug(LogTag, () => $"ShadePropertyChanged( shadeIndex: {index}, propertyName: {e.PropertyName} )");
+        switch (e.PropertyName)
+        {
+            case nameof(Shade.BlurRadius):
+            case nameof(Shade.Color):
+            case nameof(Shade.Opacity):
+                RefreshBitmap(shade);
+                Invalidate();
+                break;
+
+            case nameof(Shade.Offset):
+                UpdateShadeInfo(shade);
+                Invalidate();
+                break;
         }
     }
 }
